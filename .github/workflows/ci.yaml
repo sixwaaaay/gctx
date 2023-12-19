@@ -1,0 +1,57 @@
+﻿name: Generate Release
+
+on:
+  push:
+    branches:
+      - ''
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup C# environment
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: install aot compiler
+        run: sudo apt-get install clang zlib1g-dev
+
+      - name: restore
+        run: dotnet restore
+
+      - name: publish
+        run: dotnet publish -c Release -o ./publish -r linux-x64 /p:DebugType=None /p:DebugSymbols=false
+
+      - name: tar gz
+        run: tar -czvf ./publish.tar.gz ./publish
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          body: |
+            Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+      - name: upload archive
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./publish.tar.gz
+          asset_name: linux-x64.tar.gz
+          asset_content_type: application/gzip
+      
